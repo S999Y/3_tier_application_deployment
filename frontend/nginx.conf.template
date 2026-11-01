@@ -1,0 +1,42 @@
+# Rendered at container start by the nginx image's envsubst step.
+# ${BACKEND_URL} is replaced from the environment (default set in Dockerfile).
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    client_max_body_size 10m;
+
+    # Docker's embedded DNS. Resolving per request lets nginx start even
+    # if the backend container isn't up yet.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $backend ${BACKEND_URL};
+
+    location /api/ {
+        proxy_pass http://$backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Django admin (and its static files) through the same entrypoint.
+    location ~ ^/(admin|static)/ {
+        proxy_pass http://$backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /healthz {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    # Single-page app: unknown paths fall back to index.html.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

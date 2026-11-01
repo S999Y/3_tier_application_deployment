@@ -1,0 +1,10 @@
+student_id,student_name,subject,marks,grade
+STU001,Alice Rahman,Mathematics,92,A+
+STU001,Alice Rahman,Physics,85,A
+STU001,Alice Rahman,English,78,B+
+STU002,Bilal Hossain,Mathematics,67,B
+STU002,Bilal Hossain,Physics,72,B+
+STU002,Bilal Hossain,English,88,A
+STU003,Chandni Das,Mathematics,95,A+
+STU003,Chandni Das,Physics,91,A+
+STU003,Chandni Das,English,84,A
