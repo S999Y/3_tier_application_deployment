@@ -32,7 +32,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: migrate
-        image: registry.digitalocean.com/roy909/backend:1.0
+        image: backend  # real image and tag are set in kustomization.yaml
         imagePullPolicy: IfNotPresent
         args: ["echo", "Migrations done."]  
         env:
@@ -68,7 +68,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: registry.digitalocean.com/roy909/backend:1.0
+        image: backend  # real image and tag are set in kustomization.yaml
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000

@@ -52,7 +52,7 @@ jobs:
         working-directory: k8s
         run: |
           kustomize edit set image \
-            $IMAGE=$IMAGE:$TAG \
+            backend=$IMAGE:$TAG \
             frontend=$IMAGE:$TAG-frontend
 
       - name: Deploy
