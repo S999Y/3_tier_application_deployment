@@ -21,8 +21,11 @@ secretGenerator:
     envs:
       - postgres.env
 
+# Both images live in the same registry repo, so the manifests use the
+# placeholder names "backend" and "frontend". CD sets the tags to the git SHA.
 images:
-  - name: registry.digitalocean.com/roy909/backend
+  - name: backend
+    newName: registry.digitalocean.com/roy909/backend
     newTag: "1.0"
   - name: frontend
     newName: registry.digitalocean.com/roy909/backend

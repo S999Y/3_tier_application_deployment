@@ -7,7 +7,6 @@ metadata:
   name: app-ingress
   namespace: app
   annotations:
-    # Result uploads; matches client_max_body_size in the frontend nginx.
     nginx.org/client-max-body-size: "10m"
 spec:
   ingressClassName: nginx
