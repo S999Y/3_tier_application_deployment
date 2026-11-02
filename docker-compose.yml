@@ -1,0 +1,73 @@
+
+services:
+  # ---------- Data tier ----------
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-results}
+      POSTGRES_USER: ${POSTGRES_USER:-results}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-results}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-results} -d ${POSTGRES_DB:-results}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ---------- Application tier ----------
+  backend:
+    build: ./backend
+    image: result-backend:latest
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-insecure-secret-key-change-me}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost,http://localhost:8000,http://localhost:3000}
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-teacher}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-teacher123}
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-teacher@example.com}
+      POSTGRES_DB: ${POSTGRES_DB:-results}
+      POSTGRES_USER: ${POSTGRES_USER:-results}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-results}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      RESULT_CACHE_TTL: ${RESULT_CACHE_TTL:-300}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---------- Presentation tier ----------
+  frontend:
+    build: ./frontend
+    image: result-frontend:latest
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: backend:8000
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:

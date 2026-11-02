@@ -1,0 +1,47 @@
+# /api/, /admin/ and /static/ go straight to the backend;
+# everything else goes to the frontend (the React app).
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: app
+  annotations:
+    # Result uploads; matches client_max_body_size in the frontend nginx.
+    nginx.org/client-max-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+  # NGINX Ingress Controller requires a host. nip.io resolves to the
+  # Load Balancer IP; replace it with your domain when you have one.
+  - host: 129.212.245.100.nip.io
+    http:
+      paths:
+      - path: /api/
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8000
+      - path: /admin/
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8000
+      - path: /static/
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80

@@ -1,0 +1,66 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+concurrency: production
+
+env:
+  IMAGE: registry.digitalocean.com/roy909/backend
+  CLUSTER: k8s-1-37-0-do-2-blr1-1793433124245
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Build and push images
+        run: |
+          TAG=$(git rev-parse --short HEAD)
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          doctl registry login --expiry-seconds 1200
+          docker build -t $IMAGE:$TAG ./backend
+          docker build -t $IMAGE:$TAG-frontend ./frontend
+          docker push $IMAGE:$TAG
+          docker push $IMAGE:$TAG-frontend
+
+      - name: Connect to cluster
+        run: doctl kubernetes cluster kubeconfig save --expiry-seconds 1200 $CLUSTER
+
+      - name: Write env files from GitHub Secrets
+        working-directory: k8s
+        # Passed through env so characters like $ ` " in values are kept as-is.
+        env:
+          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
+          POSTGRES_ENV: ${{ secrets.POSTGRES_ENV }}
+        run: |
+          printf '%s\n' "$BACKEND_ENV" > backend.env
+          printf '%s\n' "$POSTGRES_ENV" > postgres.env
+
+      - name: Set image tags
+        working-directory: k8s
+        run: |
+          kustomize edit set image \
+            $IMAGE=$IMAGE:$TAG \
+            frontend=$IMAGE:$TAG-frontend
+
+      - name: Deploy
+        working-directory: k8s
+        run: |
+          # A Job's pod template can't be changed, so recreate it (this runs migrations).
+          kubectl delete job django-migrate -n app --ignore-not-found
+          kubectl apply -k .
+          kubectl wait --for=condition=complete job/django-migrate -n app --timeout=300s
+          kubectl rollout status deployment/backend -n app --timeout=180s
+          kubectl rollout status deployment/frontend -n app --timeout=180s

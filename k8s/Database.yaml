@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: db-production
+
+---
+
+# Create Secrets
+
+
+# kubectl create secret generic postgres-secret \
+#   --from-env-file=postgres.env
+
+
+# Make Your Headless Service
+
+apiVersion: v1
+kind: Service 
+metadata:
+  name: postgres-headless
+  namespace: db-production
+spec:
+  clusterIP: None 
+  selector:
+    app: postgres 
+  ports:
+    - port: 5432
+
+---
+# Make Your ClusterIP Service
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: db-production 
+
+spec:
+  selector:
+    app: postgres 
+  ports:
+    - port: 5432
+
+# Make the StatefulSet
+
+---
+apiVersion: apps/v1 
+
+kind: StatefulSet 
+
+metadata:
+  namespace: db-production
+  name: postgres 
+
+spec:
+  serviceName: postgres-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres 
+
+  template:
+    metadata:
+      labels:
+        app: postgres 
+
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        ports:
+        - containerPort: 5432
+        envFrom:
+        - secretRef:
+            name: postgres-secret 
+        
+        env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data 
+        
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          
+          limits:
+            memory: 512Mi 
+
+        readinessProbe:
+          exec:
+            command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+          initialDelaySeconds: 30
+          periodSeconds: 20
+
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+

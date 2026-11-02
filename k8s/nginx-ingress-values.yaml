@@ -1,0 +1,21 @@
+# Helm values for the F5 NGINX Ingress Controller.
+# helm upgrade --install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.8.0 -n nginx-ingress --create-namespace -f nginx-ingress-values.yaml
+
+controller:
+  replicaCount: 1
+
+  # Chart default is 100m / 128Mi, which does not fit on the node.
+  resources:
+    requests:
+      cpu: 30m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+  ingressClass:
+    name: nginx
+    create: true
+    setAsDefaultIngress: true
+
+  service:
+    type: LoadBalancer

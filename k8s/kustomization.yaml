@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - Database.yaml
+  - Redis.yaml
+  - Backend.yaml
+  - Frontend.yaml
+  - Ingress.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+secretGenerator:
+  - name: backend-secret
+    namespace: app
+    envs:
+      - backend.env
+  - name: postgres-secret
+    namespace: db-production
+    envs:
+      - postgres.env
+
+images:
+  - name: registry.digitalocean.com/roy909/backend
+    newTag: "1.0"
+  - name: frontend
+    newName: registry.digitalocean.com/roy909/backend
+    newTag: 1.0-frontend
