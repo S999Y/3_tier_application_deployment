@@ -15,7 +15,7 @@ data:
   RESULT_CACHE_TTL: "300"
   DJANGO_DEBUG: "false"
   DJANGO_ALLOWED_HOSTS: "*"
-  DJANGO_CSRF_TRUSTED_ORIGINS: "http://localhost,http://localhost:8000,http://localhost:3000,http://129.212.245.100.nip.io"
+  DJANGO_CSRF_TRUSTED_ORIGINS: "http://localhost,http://localhost:80,http://localhost:8000,http://localhost:3000,http://127.0.0.1,http://127.0.0.1:8000"
 
 
 ---
@@ -30,10 +30,24 @@ spec:
   template:
     spec:
       restartPolicy: OnFailure
+      initContainers:
+      # The Job must not race the PostgreSQL StatefulSet on a fresh cluster.
+      - name: wait-for-postgres
+        image: postgres:16-alpine
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER"; do echo "waiting for postgres..."; sleep 2; done
+        envFrom:
+        - configMapRef:
+            name: django-configmap
+        - secretRef:
+            name: backend-secret
       containers:
       - name: migrate
         image: backend  # real image and tag are set in kustomization.yaml
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         args: ["echo", "Migrations done."]  
         env:
         - name: RUN_MIGRATIONS
@@ -69,7 +83,7 @@ spec:
       containers:
       - name: backend
         image: backend  # real image and tag are set in kustomization.yaml
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 8000
         env:
@@ -87,6 +101,15 @@ spec:
             memory: 180Mi
           limits:
             memory: 300Mi
+
+        # Give Django/PostgreSQL/Redis time to become ready before the
+        # liveness probe can restart the container during initial startup.
+        startupProbe:
+          httpGet:
+            path: /api/health/
+            port: 8000
+          failureThreshold: 30
+          periodSeconds: 5
 
         readinessProbe:
           httpGet:

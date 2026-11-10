@@ -1,0 +1,27 @@
+# All browser traffic goes to the frontend. The frontend Nginx container
+# proxies /api/, /admin/ and /static/ to the backend Service, and serves the
+# React SPA for everything else.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: app
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+  # Docker Desktop exposes the ingress-nginx LoadBalancer on localhost.
+  # Browse to http://localhost/ once the controller is ready.
+  - host: localhost
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
